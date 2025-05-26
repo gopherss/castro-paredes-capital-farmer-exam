@@ -5,7 +5,7 @@
 1. Clona el repo
 `git clone https://github.com/gopherss/castro-paredes-capital-farmer-exam.git`
 2. `pip install -r requirements.txt`
-3. `python app/main.py`
+3. `uvicorn app.main:app --reload`
 
 ## Uso
 
