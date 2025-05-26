@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from app.database import create_tables, SessionLocal
 from app.models import Cotizacion
+from app.ia import analizar_con_ia 
 
 templates = Jinja2Templates(directory="templates")
 
@@ -37,12 +38,22 @@ def cotizar(
 
     numero = f"COT-2025-{str(uuid.uuid4())[:8]}"
     fecha = datetime.now().isoformat()
-    precio = precios[servicio]
+    precio_base = precios[servicio]
 
+    # Llama a la IA para analizar el caso
+    resultado_ia = analizar_con_ia(descripcion, tipo[servicio])
+
+    if "error" in resultado_ia:
+        return JSONResponse(status_code=500, content={"error": resultado_ia["error"]})
+
+    ajuste = int(resultado_ia.get("ajuste_precio", 0))
+    precio_final = int(precio_base * (1 + ajuste / 100))
+
+    # Guarda en la base de datos
     db = SessionLocal()
     cotizacion = Cotizacion(
         numero=numero, nombre=nombre, email=email,
-        tipo_servicio=tipo[servicio], precio=precio, fecha=fecha,
+        tipo_servicio=tipo[servicio], precio=precio_final, fecha=fecha
     )
     db.add(cotizacion)
     db.commit()
@@ -53,6 +64,11 @@ def cotizar(
         "nombre": nombre,
         "email": email,
         "tipo_servicio": tipo[servicio],
-        "precio": precio,
-        "fecha": fecha
+        "precio_base": precio_base,
+        "ajuste_precio": ajuste,
+        "precio_final": precio_final,
+        "fecha": fecha,
+        "complejidad": resultado_ia.get("complejidad"),
+        "servicios_adicionales": resultado_ia.get("servicios_adicionales"),
+        "propuesta_texto": resultado_ia.get("propuesta_texto")
     })
